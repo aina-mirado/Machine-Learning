@@ -1,0 +1,228 @@
+\documentclass[11pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[top=2.2cm, bottom=2.2cm, left=2.6cm, right=2.6cm, headheight=15pt]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{tcolorbox}
+\usepackage{array}
+\usepackage{parskip}
+\usepackage{setspace}
+
+% ── Colors ───────────────────────────────────────────────────────
+\definecolor{navy}{RGB}{21, 67, 96}
+\definecolor{blue}{RGB}{41, 128, 185}
+\definecolor{green}{RGB}{39, 174, 96}
+\definecolor{lightblue}{RGB}{214, 234, 248}
+\definecolor{lightgreen}{RGB}{213, 245, 227}
+
+% ── Section titles ───────────────────────────────────────────────
+\titleformat{\section}
+  {\large\bfseries\color{navy}}{\thesection.}{0.6em}{}[\color{blue}\hrule\vspace{2pt}]
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{blue}}{\thesubsection.}{0.5em}{}
+
+% ── Header / Footer ──────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{blue}{\textbf{DigiCow — Code Summary Report}}}
+\fancyhead[R]{\small\textcolor{gray}{2026}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Boxes ────────────────────────────────────────────────────────
+\tcbset{
+  infobox/.style={colback=lightblue, colframe=blue, boxrule=0.7pt,
+    arc=4pt, left=7pt, right=7pt, top=5pt, bottom=5pt},
+  resultbox/.style={colback=lightgreen, colframe=green, boxrule=0.7pt,
+    arc=4pt, left=7pt, right=7pt, top=5pt, bottom=5pt}
+}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=green}
+\captionsetup{font=small, labelfont=bf}
+\setstretch{1.2}
+
+% ─────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title block ──────────────────────────────────────────────────
+\begin{center}
+  {\LARGE\bfseries\color{navy} DigiCow Farmer Training Adoption Challenge}\\[0.4em]
+  {\large\color{blue} Code Summary Report}\\[0.3em]
+  {\color{gray}\rule{10cm}{0.8pt}}\\[0.3em]
+  {\small\textit{Notebook: \texttt{digicow\_farmer\_training\_adoption.ipynb}} \quad|\quad 2026}
+\end{center}
+
+\vspace{0.4em}
+\begin{tcolorbox}[infobox]
+\textbf{What this notebook does in one sentence:} It builds a machine learning model to predict the probability that a Kenyan farmer will adopt an agricultural practice within \textbf{7, 90, or 120 days} after receiving a DigiCow training session.
+\end{tcolorbox}
+
+% ── 1. Context ───────────────────────────────────────────────────
+\section{Context \& Objective}
+
+DigiCow Africa provides digital agricultural extension services to Kenyan smallholder farmers. Despite offering training sessions, adoption rates of recommended practices remain low. This notebook participates in a \textbf{Zindi data science competition} aimed at predicting adoption so that DigiCow can prioritize follow-up efforts.
+
+The task is a \textbf{multi-target binary classification} problem: for each farmer-training record, the model outputs three independent probabilities, one per time window (7, 90, 120 days). Outputs are raw probabilities, not class labels.
+
+\textbf{Evaluation metric:}
+\[
+\text{Zindi Score} = 0.75 \times (1 - \text{Log Loss}) + 0.25 \times \text{ROC-AUC}
+\]
+Log Loss (75\%) rewards well-calibrated probabilities; ROC-AUC (25\%) rewards correct ranking of adopters vs.\ non-adopters.
+
+% ── 2. Data ──────────────────────────────────────────────────────
+\section{Data Overview}
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Dataset} & \textbf{Rows} & \textbf{Columns} \\
+\midrule
+Train & 13,536 & 17 (incl.\ 3 targets) \\
+Test  & 5,621  & 14 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5em}
+Key raw columns include: farmer profile (\texttt{gender}, \texttt{age}, \texttt{registration}), geography (\texttt{county}, \texttt{subcounty}, \texttt{ward}), training details (\texttt{training\_day}, \texttt{trainer}, \texttt{topics\_list}), and group membership (\texttt{group\_name}, \texttt{belong\_to\_cooperative}).
+
+\textbf{The biggest challenge — class imbalance.} Adopters represent less than 2.5\% of all records in every target, making naive models useless in practice.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.82\textwidth]{f1.png}
+  \caption{Strong class imbalance across all three target variables. Adopters are a small minority (153 to 302 out of 13,536 farmers).}
+\end{figure}
+
+% ── 3. Steps ─────────────────────────────────────────────────────
+\section{Step-by-Step Procedure}
+
+Figure~\ref{fig:pipeline} shows the full pipeline at a glance. Each step is described below.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{f2.png}
+  \caption{End-to-end pipeline from raw CSV files to the final submission.}
+  \label{fig:pipeline}
+\end{figure}
+
+\subsection{Step 1 — Load Data}
+Train and test CSV files are loaded. The three target columns (\texttt{adopted\_within\_07\_days}, \texttt{adopted\_within\_90\_days}, \texttt{adopted\_within\_120\_days}) are identified.
+
+\subsection{Step 2 — Parse Lists \& Dates}
+Two columns (\texttt{trainer} and \texttt{topics\_list}) are stored as Python-list strings (e.g., \texttt{['TRA\_abc']}). They are safely parsed with \texttt{ast.literal\_eval} to extract actual list values. The \texttt{training\_day} column is converted to a proper datetime object.
+
+\subsection{Step 3 — Feature Engineering (22 variables created)}
+
+From the raw columns, 22 model-ready features are constructed:
+
+\begin{center}
+\small
+\begin{tabular}{p{3.4cm} p{9.5cm}}
+\toprule
+\textbf{Feature group} & \textbf{Variables created} \\
+\midrule
+Date & \texttt{year}, \texttt{month}, \texttt{dayofweek}, \texttt{dayofyear}, \texttt{quarter}, \texttt{is\_weekend} \\
+Trainer & \texttt{primary\_trainer} (first trainer ID), \texttt{num\_trainers} \\
+Topics & \texttt{num\_topics}, \texttt{num\_unique\_topics}, \texttt{has\_poultry}, \texttt{has\_herd}, \texttt{has\_dairy}, \texttt{has\_app} \\
+Interaction & \texttt{coop\_gender} (cooperative membership $\times$ gender) \\
+Raw (kept) & \texttt{gender}, \texttt{age}, \texttt{registration}, \texttt{group\_name}, \texttt{county}, \texttt{subcounty}, \texttt{ward}, \texttt{belong\_to\_cooperative}, \texttt{has\_topic\_trained\_on} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Step 4 — Label Encoding}
+All categorical variables are encoded with \texttt{LabelEncoder}. Crucially, encoding is fitted on the \textbf{concatenation of train and test} to avoid unseen-category errors at prediction time.
+
+\subsection{Step 5 — Model Training with 5-Fold Cross-Validation}
+
+One model is trained per target (3 targets $\times$ 2 algorithms = 6 training loops total). A \textbf{Stratified K-Fold} (5 splits) is used to preserve the class ratio in each fold. \textbf{Out-of-Fold (OOF)} predictions are collected to obtain unbiased validation scores without a separate held-out set.
+
+\textbf{LightGBM} is the primary model. Key parameters: \texttt{is\_unbalance=True} (handles class imbalance), \texttt{learning\_rate=0.03}, \texttt{num\_leaves=63}, early stopping after 100 rounds of no improvement (up to 2,000 trees).
+
+\textbf{XGBoost} is trained as a second model. Key difference: \texttt{scale\_pos\_weight} is set per target to the ratio of negatives to positives (e.g., $\approx 88$ for the 7-day target), explicitly penalizing missed positives.
+
+\subsection{Step 6 — Blend Optimization}
+
+After both models are trained, their OOF predictions are combined with a weighted average:
+\[
+\hat{y}_{\text{blend}} = w \cdot \hat{y}_{\text{LGB}} + (1-w) \cdot \hat{y}_{\text{XGB}}
+\]
+The optimal weight $w$ is found by grid search over $[0, 1]$ in steps of 0.05, minimizing OOF Log Loss. The best $w$ is applied to the test predictions.
+
+\subsection{Step 7 — Submission File}
+
+Predictions are clipped to $[10^{-6},\, 1 - 10^{-6}]$ to avoid infinite Log Loss. The final file follows the Zindi format with 7 columns:
+
+\texttt{ID}, \texttt{Target\_07\_AUC}, \texttt{Target\_90\_AUC}, \texttt{Target\_120\_AUC}, \texttt{Target\_07\_LogLoss}, \texttt{Target\_90\_LogLoss}, \texttt{Target\_120\_LogLoss}.
+
+% ── 4. Results ───────────────────────────────────────────────────
+\section{Results}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{f3.png}
+  \caption{OOF validation scores for LightGBM, XGBoost, and their blended combination. Blending consistently improves both metrics.}
+\end{figure}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Target} & \textbf{Log Loss} & \textbf{ROC-AUC} & \textbf{Zindi Score} \\
+\midrule
+7 days   & 0.051 & 0.725 & 0.933 \\
+90 days  & 0.071 & 0.703 & 0.929 \\
+120 days & 0.093 & 0.716 & 0.929 \\
+\midrule
+\textbf{Average} & \textbf{0.072} & \textbf{0.715} & \textbf{0.930} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5em}
+\begin{tcolorbox}[resultbox]
+\textbf{Key takeaways from the results:}
+\begin{itemize}[leftmargin=1em, itemsep=2pt]
+  \item Blending always beats either model alone — LGB and XGB are complementary.
+  \item Log Loss increases with the time horizon (7 $\to$ 120 days) because longer windows include more heterogeneous adopter profiles.
+  \item An AUC around 0.71 on a dataset with $<$2\% positives is a solid result — the model correctly ranks adopters above non-adopters 71\% of the time.
+\end{itemize}
+\end{tcolorbox}
+
+% ── 5. Quick Reference ───────────────────────────────────────────
+\section{Quick Reference — What Each Section of the Code Does}
+
+\begin{center}
+\small
+\begin{tabular}{p{0.5cm} p{3.8cm} p{9cm}}
+\toprule
+\textbf{\#} & \textbf{Notebook section} & \textbf{What it does} \\
+\midrule
+1 & Imports \& Config       & Loads libraries, sets random seed \\
+2 & Load Data               & Reads Train.csv and Test.csv \\
+3 & Exploratory Analysis    & Shows class distribution and adoption rates by gender \\
+4 & Feature Engineering     & Parses lists/dates, creates 22 features \\
+5 & Zindi Metric            & Defines the combined Log Loss + AUC scoring function \\
+6 & LightGBM Training       & Trains LGB with 5-fold CV, collects OOF predictions \\
+7 & LGB Evaluation          & Displays fold-by-fold and OOF scores, plots results \\
+8 & Feature Importance      & Retrains on full data to visualize top 15 features \\
+9 & XGBoost Training        & Trains XGB with scale\_pos\_weight, 5-fold CV \\
+10 & Blend Optimization     & Finds optimal LGB/XGB weight per target via OOF \\
+11 & Final Results           & Summary table of blended OOF performance \\
+12 & Submission              & Clips probabilities, exports submission.csv \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

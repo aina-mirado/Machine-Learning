@@ -1,0 +1,54 @@
+{
+  "description": "This is a system generated manifest of files expected to be present in this zip. It can be safely deleted.",
+  "metadata": {
+    "generated_at": "2026-02-10T12:40:23+00:00",
+    "trigger": {
+      "file_hashid": "unknown",
+      "action": "unknown"
+    }
+  },
+  "manifest": [
+    {
+      "filename": "dataset_data_dictionary.csv",
+      "filesize": 880,
+      "description": "A full description of all the features in the dataset",
+      "created_at": "2026-02-10 12:38:56 UTC",
+      "updated_at": "2026-02-10 12:39:01 UTC"
+    },
+    {
+      "filename": "Prior.csv",
+      "filesize": 7454788,
+      "description": "A complete record of a farmer’s past participation in training events.",
+      "created_at": "2026-02-10 12:39:06 UTC",
+      "updated_at": "2026-02-10 12:40:23 UTC"
+    },
+    {
+      "filename": "StarterNotebook.ipynb",
+      "filesize": 127006,
+      "description": "Very basic starter notebook.",
+      "created_at": "2026-01-28 21:53:27 UTC",
+      "updated_at": "2026-01-28 21:54:47 UTC"
+    },
+    {
+      "filename": "SampleSubmission.csv",
+      "filesize": 123763,
+      "description": "This file shows the required submission format.",
+      "created_at": "2026-02-10 12:36:13 UTC",
+      "updated_at": "2026-02-10 12:36:22 UTC"
+    },
+    {
+      "filename": "Test.csv",
+      "filesize": 1254202,
+      "description": "The file contains the same input features as the training set but excludes the target variable; it should be used to generate predictions.",
+      "created_at": "2026-02-10 12:36:29 UTC",
+      "updated_at": "2026-02-10 12:36:33 UTC"
+    },
+    {
+      "filename": "Train.csv",
+      "filesize": 3239613,
+      "description": "This file should be used to train and validate the model.",
+      "created_at": "2026-02-10 12:36:47 UTC",
+      "updated_at": "2026-02-10 12:36:53 UTC"
+    }
+  ]
+}
